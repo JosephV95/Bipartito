@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grafo Bipartito - 8 Reinas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f0f1a;
+    color: #e0e0f0;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 1.2rem;
+    color: #a78bfa;
+    margin-bottom: 6px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-bottom: 16px;
+  }
+  .layout {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  /* TABLERO */
+  .board-wrap { display: flex; flex-direction: column; align-items: center; }
+  .board-label { font-size: 0.7rem; color: #a78bfa; margin-bottom: 6px; letter-spacing: 1px; }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(8, 36px);
+    grid-template-rows: repeat(8, 36px);
+    border: 2px solid #a78bfa;
+  }
+  .cell {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .cell.light { background: #e8e0f0; }
+  .cell.dark  { background: #4a3f6b; }
+  .cell.light:hover { background: #c4b5fd; }
+  .cell.dark:hover  { background: #7c3aed; }
+  .cell.queen { color: #fbbf24; }
+  .cell.attacked { opacity: 0.35; cursor: not-allowed; }
+  .cell.attacked:hover { background: inherit; }
+
+  /* ROW/COL LABELS */
+  .col-labels {
+    display: grid;
+    grid-template-columns: repeat(8, 36px);
+    margin-top: 4px;
+  }
+  .col-labels span {
+    text-align: center;
+    font-size: 0.65rem;
+    color: #6b7280;
+  }
+  .row-labels {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    margin-right: 4px;
+    height: 288px;
+  }
+  .row-labels span {
+    font-size: 0.65rem;
+    color: #6b7280;
+    line-height: 36px;
+  }
+
+  /* GRAFO SVG */
+  .graph-wrap { display: flex; flex-direction: column; align-items: center; }
+  .graph-label { font-size: 0.7rem; color: #34d399; margin-bottom: 6px; letter-spacing: 1px; }
+  #graphSvg {
+    background: #1a1a2e;
+    border: 1px solid #2d2d4e;
+    border-radius: 8px;
+  }
+
+  /* INFO */
+  .info {
+    margin-top: 12px;
+    background: #1a1a2e;
+    border: 1px solid #2d2d4e;
+    border-radius: 8px;
+    padding: 12px 16px;
+    max-width: 680px;
+    width: 100%;
+  }
+  .info-row { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+  .stat { text-align: center; }
+  .stat .num { font-size: 1.4rem; font-weight: bold; color: #a78bfa; }
+  .stat .lbl { font-size: 0.65rem; color: #6b7280; margin-top: 2px; }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 0.65rem; color: #9ca3af; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .btn-reset {
+    margin-top: 10px;
+    display: block;
+    width: 100%;
+    padding: 8px;
+    background: #3b1f6e;
+    color: #c4b5fd;
+    border: 1px solid #7c3aed;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    transition: background 0.15s;
+  }
+  .btn-reset:hover { background: #5b21b6; }
+
+  .msg {
+    text-align: center;
+    font-size: 0.75rem;
+    margin-top: 8px;
+    min-height: 18px;
+    color: #fbbf24;
+  }
+</style>
+</head>
+<body>
+
+<h1>♛ Grafo Bipartito — Problema de las 8 Reinas</h1>
+<p class="subtitle">Hacé clic en el tablero para colocar reinas. El grafo se actualiza solo.</p>
+
+<div class="layout">
+  <div class="board-wrap">
+    <div class="board-label">TABLERO</div>
+    <div style="display:flex">
+      <div class="row-labels" id="rowLabels"></div>
+      <div class="board" id="board"></div>
+    </div>
+    <div class="col-labels" id="colLabels"></div>
+  </div>
+
+  <div class="graph-wrap">
+    <div class="graph-label">GRAFO BIPARTITO (Filas ↔ Columnas)</div>
+    <svg id="graphSvg" width="300" height="300"></svg>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot" style="background:#34d399"></div> Conexión válida (sin diagonal)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#f87171"></div> Bloqueada por diagonal</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#fbbf24"></div> Reina colocada</div>
+    </div>
+  </div>
+</div>
+
+<div class="info" style="margin: 12px auto 0;">
+  <div class="info-row">
+    <div class="stat"><div class="num" id="statQueens">0</div><div class="lbl">Reinas colocadas</div></div>
+    <div class="stat"><div class="num" id="statValid">64</div><div class="lbl">Conexiones válidas</div></div>
+    <div class="stat"><div class="num" id="statBlocked">0</div><div class="lbl">Bloqueadas por diagonal</div></div>
+  </div>
+  <div class="msg" id="msg"></div>
+  <button class="btn-reset" onclick="reset()">↺ REINICIAR TABLERO</button>
+</div>
+
+<script>
+const N = 8;
+const COLS = ['A','B','C','D','E','F','G','H'];
+
+// queens[fila] = columna (0-indexed), -1 si no hay
+let queens = Array(N).fill(-1);
+
+// Construir tablero
+const board = document.getElementById('board');
+const cells = [];
+for (let r = N-1; r >= 0; r--) {
+  for (let c = 0; c < N; c++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell ' + ((r+c)%2===0 ? 'light' : 'dark');
+    cell.dataset.r = r;
+    cell.dataset.c = c;
+    cell.onclick = () => toggleQueen(r, c);
+    board.appendChild(cell);
+    if (!cells[r]) cells[r] = [];
+    cells[r][c] = cell;
+  }
+}
+
+// Row labels
+const rowLabels = document.getElementById('rowLabels');
+for (let r = N-1; r >= 0; r--) {
+  const s = document.createElement('span');
+  s.textContent = (r+1);
+  rowLabels.appendChild(s);
+}
+// Col labels
+const colLabels = document.getElementById('colLabels');
+for (let c = 0; c < N; c++) {
+  const s = document.createElement('span');
+  s.textContent = COLS[c];
+  colLabels.appendChild(s);
+}
+
+function isAttacked(r, c) {
+  for (let row = 0; row < N; row++) {
+    if (queens[row] === -1) continue;
+    const qc = queens[row];
+    if (qc === c) return true; // misma columna
+    if (Math.abs(row - r) === Math.abs(qc - c)) return true; // diagonal
+  }
+  return false;
+}
+
+function toggleQueen(r, c) {
+  if (queens[r] === c) {
+    // quitar reina
+    queens[r] = -1;
+  } else if (queens[r] !== -1) {
+    // ya hay reina en esta fila, moverla
+    queens[r] = c;
+  } else if (isAttacked(r, c)) {
+    document.getElementById('msg').textContent = '⚠ Esa casilla está atacada por otra reina.';
+    setTimeout(() => document.getElementById('msg').textContent = '', 2000);
+    return;
+  } else {
+    queens[r] = c;
+  }
+  render();
+}
+
+function render() {
+  // Limpiar tablero
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++) {
+      const cell = cells[r][c];
+      cell.textContent = '';
+      cell.className = 'cell ' + ((r+c)%2===0 ? 'light' : 'dark');
+    }
+
+  // Marcar atacadas y reinas
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      if (queens[r] === c) {
+        cells[r][c].textContent = '♛';
+        cells[r][c].classList.add('queen');
+      } else if (isAttacked(r, c)) {
+        cells[r][c].classList.add('attacked');
+      }
+    }
+  }
+
+  drawGraph();
+
+  // Stats
+  const placed = queens.filter(q => q !== -1).length;
+  document.getElementById('statQueens').textContent = placed;
+
+  // Contar conexiones válidas y bloqueadas
+  let valid = 0, blocked = 0;
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      if (queens[r] === c) continue; // ya usada
+      // Verificar si (r,c) está en diagonal con alguna reina
+      let diag = false;
+      for (let qr = 0; qr < N; qr++) {
+        if (queens[qr] === -1) continue;
+        if (Math.abs(qr - r) === Math.abs(queens[qr] - c)) { diag = true; break; }
+      }
+      if (diag) blocked++;
+      else valid++;
+    }
+  }
+  document.getElementById('statValid').textContent = valid;
+  document.getElementById('statBlocked').textContent = blocked;
+
+  // Mensaje victoria
+  const placed2 = queens.filter(q => q !== -1).length;
+  if (placed2 === 8) {
+    document.getElementById('msg').textContent = '✓ ¡Solución válida! Las 8 reinas están colocadas sin atacarse.';
+  } else {
+    document.getElementById('msg').textContent = '';
+  }
+}
+
+function drawGraph() {
+  const svg = document.getElementById('graphSvg');
+  svg.innerHTML = '';
+  const W = 300, H = 300;
+  const leftX = 60, rightX = 240;
+  const margin = 24;
+  const step = (H - margin*2) / (N-1);
+
+  // Posiciones de nodos
+  const rowY = (i) => margin + i * step; // filas: 0=fila8 ... 7=fila1 (visual top-down)
+  const colY = (i) => margin + i * step;
+
+  // Dibujar aristas primero
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      // Si hay reina en esta fila, dibujar arista dorada a su columna
+      if (queens[r] === c) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1', leftX);
+        line.setAttribute('y1', rowY(N-1-r));
+        line.setAttribute('x2', rightX);
+        line.setAttribute('y2', colY(c));
+        line.setAttribute('stroke', '#fbbf24');
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('opacity', '0.9');
+        svg.appendChild(line);
+        continue;
+      }
+
+      // Ver si está bloqueada por diagonal
+      let blocked = false;
+      for (let qr = 0; qr < N; qr++) {
+        if (queens[qr] === -1) continue;
+        if (Math.abs(qr - r) === Math.abs(queens[qr] - c)) { blocked = true; break; }
+      }
+
+      // Solo dibujar si hay al menos una reina (para no saturar)
+      const placed = queens.filter(q => q !== -1).length;
+      if (placed === 0) continue;
+
+      if (blocked) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1', leftX);
+        line.setAttribute('y1', rowY(N-1-r));
+        line.setAttribute('x2', rightX);
+        line.setAttribute('y2', colY(c));
+        line.setAttribute('stroke', '#f87171');
+        line.setAttribute('stroke-width', '0.5');
+        line.setAttribute('opacity', '0.25');
+        svg.appendChild(line);
+      } else {
+        // fila no ocupada y columna no ocupada
+        const colUsed = queens.includes(c);
+        if (!colUsed) {
+          const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+          line.setAttribute('x1', leftX);
+          line.setAttribute('y1', rowY(N-1-r));
+          line.setAttribute('x2', rightX);
+          line.setAttribute('y2', colY(c));
+          line.setAttribute('stroke', '#34d399');
+          line.setAttribute('stroke-width', '0.8');
+          line.setAttribute('opacity', '0.35');
+          svg.appendChild(line);
+        }
+      }
+    }
+  }
+
+  // Nodos filas (izquierda)
+  for (let r = 0; r < N; r++) {
+    const y = rowY(N-1-r);
+    const hasQueen = queens[r] !== -1;
+    const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx', leftX);
+    circle.setAttribute('cy', y);
+    circle.setAttribute('r', 10);
+    circle.setAttribute('fill', hasQueen ? '#fbbf24' : '#3b1f6e');
+    circle.setAttribute('stroke', hasQueen ? '#fbbf24' : '#a78bfa');
+    circle.setAttribute('stroke-width', '1.5');
+    svg.appendChild(circle);
+
+    const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+    text.setAttribute('x', leftX);
+    text.setAttribute('y', y + 4);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-size', '9');
+    text.setAttribute('fill', hasQueen ? '#1a1a2e' : '#c4b5fd');
+    text.setAttribute('font-family', 'Courier New');
+    text.textContent = 'F' + (r+1);
+    svg.appendChild(text);
+  }
+
+  // Nodos columnas (derecha)
+  for (let c = 0; c < N; c++) {
+    const y = colY(c);
+    const hasQueen = queens.some((qc, qr) => qc === c);
+    const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx', rightX);
+    circle.setAttribute('cy', y);
+    circle.setAttribute('r', 10);
+    circle.setAttribute('fill', hasQueen ? '#fbbf24' : '#1a3a2e');
+    circle.setAttribute('stroke', hasQueen ? '#fbbf24' : '#34d399');
+    circle.setAttribute('stroke-width', '1.5');
+    svg.appendChild(circle);
+
+    const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+    text.setAttribute('x', rightX);
+    text.setAttribute('y', y + 4);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-size', '9');
+    text.setAttribute('fill', hasQueen ? '#1a1a2e' : '#6ee7b7');
+    text.setAttribute('font-family', 'Courier New');
+    text.textContent = COLS[c];
+    svg.appendChild(text);
+  }
+
+  // Labels grupo
+  const lt = document.createElementNS('http://www.w3.org/2000/svg','text');
+  lt.setAttribute('x', leftX); lt.setAttribute('y', 12);
+  lt.setAttribute('text-anchor','middle'); lt.setAttribute('font-size','8');
+  lt.setAttribute('fill','#a78bfa'); lt.setAttribute('font-family','Courier New');
+  lt.textContent = 'FILAS'; svg.appendChild(lt);
+
+  const rt = document.createElementNS('http://www.w3.org/2000/svg','text');
+  rt.setAttribute('x', rightX); rt.setAttribute('y', 12);
+  rt.setAttribute('text-anchor','middle'); rt.setAttribute('font-size','8');
+  rt.setAttribute('fill','#34d399'); rt.setAttribute('font-family','Courier New');
+  rt.textContent = 'COLS'; svg.appendChild(rt);
+}
+
+function reset() {
+  queens = Array(N).fill(-1);
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
